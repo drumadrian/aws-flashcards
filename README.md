@@ -1,6 +1,9 @@
 # aws-flashcards
 This repository holds the source information for creating AWS flashcards for studying.  
 
+![social media image](social_media.png?raw=true "social media image")
+
+
 ##Releases: 
 
 [**v1.0**](https://github.com/drumadrian/aws-flashcards/releases/tag/untagged-7fb9feea80f93c277246)
