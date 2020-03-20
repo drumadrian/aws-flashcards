@@ -1,0 +1,10 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "aws-flashcards-api"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-9uezuy1wn7v6"
+s3_prefix = "aws-flashcards-api"
+region = "us-west-2"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"

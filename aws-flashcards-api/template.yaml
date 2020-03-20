@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  aws-flashcards
+
+  SAM Template for aws-flashcards
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 10
+
+Resources:
+  # HelloWorldFunction:
+  #   Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  #   Properties:
+  #     CodeUri: hello_world/
+  #     Handler: app.lambda_handler
+  #     Runtime: python3.6
+  #     Events:
+  #       HelloWorld:
+  #         Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+  #         Properties:
+  #           Path: /hello
+  #           Method: get
+
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      AttributeDefinitions: 
+        - AttributeName: id
+          AttributeType: S
+      KeySchema: 
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      # StreamSpecification:
+      #   StreamViewType: NEW_IMAGE
+
+
+  HelpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: HelpFunction
+      Runtime: python3.6
+      Handler: app.lambda_handler
+      CodeUri: help/
+      Events:
+        HelpRequest:
+          Type: Api
+          Properties:
+            # RestApiId: !Ref "FlashcardsApiGateway"
+            Path: /
+            Method: GET
+      Policies:
+        - AWSLambdaBasicExecutionRole
+
+
+  ListServicesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: PostPetFunction
+      Runtime: python3.6
+      Handler: app.lambda_handler
+      CodeUri: listservices/
+      Events:
+        PostPetApi:
+          Type: Api
+          Properties:
+            # RestApiId: !Ref "FlashcardsApiGateway"
+            Path: /listservices
+            Method: GET
+      Policies:
+        - AWSLambdaBasicExecutionRole
+
+
+  GetServicebyNameFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GetPetFunction
+      Runtime: python3.6
+      Handler: app.lambda_handler
+      CodeUri: getservicebyname/
+      Events:
+        GetPetApi:
+          Type: Api
+          Properties:
+            # RestApiId: !Ref "FlashcardsApiGateway"
+            Path: /getservicebyname/{servicename}
+            Method: GET
+      Policies:
+        - AWSLambdaBasicExecutionRole
+
+
+
+  # FlashcardsApiGateway: 
+  #   Type: AWS::Serverless::Api
+    # Properties:
+      # StageName: prod
+
+
+
+
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  # HelloWorldApi:
+  #   Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+  #   Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
+  # HelloWorldFunction:
+  #   Description: "Hello World Lambda Function ARN"
+  #   Value: !GetAtt HelloWorldFunction.Arn
+  # HelloWorldFunctionIamRole:
+  #   Description: "Implicit IAM Role created for Hello World function"
+  #   Value: !GetAtt HelloWorldFunctionRole.Arn
+
+
+
+  FlashcardsApi:
+    Description: "API Gateway endpoint URL for prod stage for AWS Flashcards"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+
+  ListServicesFunction:
+    Description: "List Services Lambda Function ARN"
+    Value: !GetAtt ListServicesFunction.Arn
+
+  ListServicesFunctionIamRole:
+    Description: "Implicit IAM Role created for ListServicesFunction function"
+    Value: !GetAtt ListServicesFunctionRole.Arn
+
+
+
+
+
