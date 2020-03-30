@@ -8,3 +8,5 @@ s3_prefix = "aws-flashcards-api"
 region = "us-west-2"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
+parameter_overrides = "ElasticsearchVersion=\"7.4\" ElasticsearchAvailabilityZoneCount=\"3\" ElasticsearchInstanceType=\"i3.large.elasticsearch\" ElasticsearchInstanceCount=\"3\" ElasticsearchMasterType=\"c4.large.elasticsearch\" ElasticsearchMasterCount=\"3\" CognitoUserPoolDomain=\"flashcardsapi\" CognitoAllowedEmailDomains=\"amazon.com,amazon.co.jp\""
+

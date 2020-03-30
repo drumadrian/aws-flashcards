@@ -5,58 +5,108 @@ Description: >
 
   SAM Template for aws-flashcards
 
+#References: 
+  # https://github.com/chankh/ddb-elasticsearch/blob/master/lambda_function.py
+  # https://us-west-2.console.aws.amazon.com/lambda/home?region=us-west-2#/create/app?applicationId=arn:aws:serverlessrepo:us-east-1:345513370492:applications/amazon-elasticsearch-cognito-auth
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 10
 
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Elasticsearch Configuration
+      Parameters:
+      - ElasticsearchVersion
+      - ElasticsearchAvailabilityZoneCount
+      - ElasticsearchInstanceType
+      - ElasticsearchInstanceCount
+      - ElasticsearchMasterType
+      - ElasticsearchMasterCount
+    - Label:
+        default: Cognito Configuration
+      Parameters:
+      - CognitoUserPoolDomain
+      - CognitoAllowedEmailDomains
+
+
+Parameters:
+
+  ElasticsearchVersion:
+    Type: String
+    Default: 7.4
+    AllowedValues:
+    - 7.4
+    - 7.1
+    - 6.8
+
+  ElasticsearchAvailabilityZoneCount:
+    Type: Number
+    Default: 3
+    AllowedValues:
+    - 1
+    - 2
+    - 3
+
+  ElasticsearchInstanceType:
+    Type: String
+    Default: i3.large.elasticsearch
+    AllowedValues:
+    - i3.large.elasticsearch
+    - i3.xlarge.elasticsearch
+    - i3.2xlarge.elasticsearch
+    - i3.4xlarge.elasticsearch
+    - i3.8xlarge.elasticsearch
+    - i3.16xlarge.elasticsearch
+
+  ElasticsearchInstanceCount:
+    Type: Number
+    Default: 3
+ 
+  ElasticsearchMasterType:
+    Type: String
+    Default: c4.large.elasticsearch
+    AllowedValues:
+    - t2.small.elasticsearch
+    - t2.medium.elasticsearch
+    - m5.large.elasticsearch
+    - m5.xlarge.elasticsearch
+    - m5.2xlarge.elasticsearch
+    - m5.4xlarge.elasticsearch
+    - m5.12xlarge.elasticsearch
+    - r5.large.elasticsearch
+    - r5.xlarge.elasticsearch
+    - r5.2xlarge.elasticsearch
+    - r5.4xlarge.elasticsearch
+    - r5.12xlarge.elasticsearch
+    - c4.large.elasticsearch
+    - c4.xlarge.elasticsearch
+    - c4.2xlarge.elasticsearch
+    - c4.4xlarge.elasticsearch
+    - c4.8xlarge.elasticsearch
+ 
+  ElasticsearchMasterCount:
+    Type: Number
+    Default: 3
+ 
+  CognitoUserPoolDomain:
+    Description: Domain prefix for the sign-in page hosted by Amazon Cognito
+    Type: String
+    AllowedPattern: ^[a-z0-9\-]*$
+    MaxLength: 63
+    MinLength: 1
+
+  CognitoAllowedEmailDomains:
+    Type: CommaDelimitedList
+    Description: Specific domains allowed to register on Cognito
+    Default: amazon.com,amazon.co.jp
+
+
 Resources:
-  # HelloWorldFunction:
-  #   Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
-  #   Properties:
-  #     CodeUri: hello_world/
-  #     Handler: app.lambda_handler
-  #     Runtime: python3.6
-  #     Events:
-  #       HelloWorld:
-  #         Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
-  #         Properties:
-  #           Path: /hello
-  #           Method: get
 
-  DynamoDBTable:
-    Type: AWS::DynamoDB::Table
-    Properties: 
-      AttributeDefinitions: 
-        - AttributeName: id
-          AttributeType: S
-      KeySchema: 
-        - AttributeName: id
-          KeyType: HASH
-      ProvisionedThroughput: 
-        ReadCapacityUnits: 1
-        WriteCapacityUnits: 1
-      # StreamSpecification:
-      #   StreamViewType: NEW_IMAGE
-
-
-  HelpFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: HelpFunction
-      Runtime: python3.6
-      Handler: app.lambda_handler
-      CodeUri: help/
-      Events:
-        HelpRequest:
-          Type: Api
-          Properties:
-            # RestApiId: !Ref "FlashcardsApiGateway"
-            Path: /
-            Method: GET
-      Policies:
-        - AWSLambdaBasicExecutionRole
-
+      
 
   ListServicesFunction:
     Type: AWS::Serverless::Function
@@ -93,32 +143,243 @@ Resources:
       Policies:
         - AWSLambdaBasicExecutionRole
 
+# -------------------------
+
+  Elasticsearch:
+    Type: AWS::Elasticsearch::Domain
+    DependsOn: UserPoolDomain
+    # DeletionPolicy: Retain
+    UpdatePolicy: 
+      EnableVersionUpgrade: true
+    Properties:
+      ElasticsearchVersion:
+        Ref: ElasticsearchVersion
+      ElasticsearchClusterConfig:
+        ZoneAwarenessEnabled: true
+        ZoneAwarenessConfig:
+          AvailabilityZoneCount:
+            Ref: ElasticsearchAvailabilityZoneCount
+        InstanceType:
+          Ref: ElasticsearchInstanceType
+        InstanceCount:
+          Ref: ElasticsearchInstanceCount
+        DedicatedMasterEnabled: true
+        DedicatedMasterType:
+          Ref: ElasticsearchMasterType
+        DedicatedMasterCount:
+          Ref: ElasticsearchMasterCount
+      CognitoOptions:
+        Enabled: true
+        UserPoolId:
+          Ref: KibanaUserPool
+        IdentityPoolId:
+          Ref: KibanaIdentityPool
+        RoleArn:
+          Fn::GetAtt:
+          - CognitoAccessForAmazonES
+          - Arn
+      AdvancedOptions:
+        rest.action.multi.allow_explicit_index: true
+      AccessPolicies:
+        Fn::Sub: |
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": [
+                    "${AWS::AccountId}"
+                  ]
+                },
+                "Action": [
+                  "es:*"
+                ],
+                "Resource": "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/*/*"
+              }
+            ]
+          }
+
+  CognitoAccessForAmazonES:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Amazon Elasticsearch role for Kibana authentication.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: es.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonESCognitoAccess
+      Path: /service-role/
+
+  PreSignUp:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: PreSignUp
+      Description: Validate e-mail domain just before sign-up
+      Handler: index.lambda_handler
+      CodeUri: presignup/
+      Runtime: python3.6
+      Environment:
+        Variables:
+          ALLOWED_DOMAINS:
+            Fn::Join:
+            - ','
+            - Ref: CognitoAllowedEmailDomains
+
+  PreSignUpInvocationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+        - PreSignUp
+        - Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - KibanaUserPool
+        - Arn
+
+  KibanaUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UsernameAttributes:
+      - email
+      AutoVerifiedAttributes:
+      - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+      Schema:
+      - Name: email
+        AttributeDataType: String
+        DeveloperOnlyAttribute: false
+        Mutable: true
+        Required: true
+      LambdaConfig:
+        PreSignUp:
+          Fn::GetAtt:
+          - PreSignUp
+          - Arn
+
+  KibanaIdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      AllowUnauthenticatedIdentities: true
+
+  KibanaIdentityRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRoleWithWebIdentity
+          Principal:
+            Federated: cognito-identity.amazonaws.com
+          Condition:
+            StringEquals:
+              cognito-identity.amazonaws.com:aud:
+                Ref: KibanaIdentityPool
+            ForAnyValue:StringLike:
+              cognito-identity.amazonaws.com:amr: authenticated
+      Policies:
+      - PolicyName: AuthenticatedPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - es:ESHttp*
+            Resource:
+            - '*'
+
+  RoleAttachment:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId:
+        Ref: KibanaIdentityPool
+      Roles:
+        authenticated:
+          Fn::GetAtt:
+          - KibanaIdentityRole
+          - Arn
+
+  UserPoolDomain:
+    Type: Custom::UserPoolDomain
+    Version: 1.0
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+        - ModifyUserPoolDomain
+        - Arn
+      Domain:
+        Ref: CognitoUserPoolDomain
+      UserPoolId:
+        Ref: KibanaUserPool
+
+  ModifyUserPoolDomain:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ModifyUserPoolDomain
+      Description: '[CFn Custom Resource] modify a domain prefix for the sign-in page
+        hosted by Amazon Cognito'
+      Handler: index.lambda_handler
+      CodeUri: modifyuserpooldomain/
+      Runtime: python3.6
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - cognito-idp:CreateUserPoolDomain
+          - cognito-idp:DeleteUserPoolDomain
+          Resource:
+          - Fn::GetAtt:
+            - KibanaUserPool
+            - Arn
+
+  ModifyTemplate:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ModifyElasticsearchTemplate
+      Description: '[CFn Custom Resource] modify a mapping template of Amazon Elasticsearch
+        Service'
+      Handler: index.lambda_handler
+      CodeUri: modifytemplate/
+      Runtime: python3.6
+      Environment:
+        Variables:
+          ES_HOST:
+            Fn::GetAtt:
+            - Elasticsearch
+            - DomainEndpoint
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - es:ESHttpPut
+          - es:ESHttpDelete
+          Resource:
+          - Fn::Sub: ${Elasticsearch.Arn}/_template/*
 
 
-  # FlashcardsApiGateway: 
-  #   Type: AWS::Serverless::Api
-    # Properties:
-      # StageName: prod
-
-
-
+# -------------------------
 
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
   # Find out more about other implicit resources you can reference within SAM
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  # HelloWorldApi:
-  #   Description: "API Gateway endpoint URL for Prod stage for Hello World function"
-  #   Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
-  # HelloWorldFunction:
-  #   Description: "Hello World Lambda Function ARN"
-  #   Value: !GetAtt HelloWorldFunction.Arn
-  # HelloWorldFunctionIamRole:
-  #   Description: "Implicit IAM Role created for Hello World function"
-  #   Value: !GetAtt HelloWorldFunctionRole.Arn
-
-
 
   FlashcardsApi:
     Description: "API Gateway endpoint URL for prod stage for AWS Flashcards"
@@ -128,9 +389,23 @@ Outputs:
     Description: "List Services Lambda Function ARN"
     Value: !GetAtt ListServicesFunction.Arn
 
-  ListServicesFunctionIamRole:
-    Description: "Implicit IAM Role created for ListServicesFunction function"
-    Value: !GetAtt ListServicesFunctionRole.Arn
+  ElasticsearchArn:
+    Value:
+      Fn::GetAtt:
+      - Elasticsearch
+      - Arn
+
+  ElasticsearchEndpoint:
+    Value:
+      Fn::GetAtt:
+      - Elasticsearch
+      - DomainEndpoint
+
+  ModifyTemplateLambdaFunctionArn:
+    Value:
+      Fn::GetAtt:
+      - ModifyTemplate
+      - Arn
 
 
 
