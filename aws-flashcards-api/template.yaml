@@ -143,6 +143,25 @@ Resources:
       Policies:
         - AWSLambdaBasicExecutionRole
 
+
+  ImportCSVfromS3Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ImportCSVfromS3Function
+      Runtime: python3.6
+      Handler: app.lambda_handler
+      CodeUri: importcsvfroms3/
+      Events:
+        GetPetApi:
+          Type: Api
+          Properties:
+            # RestApiId: !Ref "FlashcardsApiGateway"
+            Path: /importcsvfroms3function/
+            Method: GET
+      Policies:
+        - AWSLambdaBasicExecutionRole
+
+
 # -------------------------
 
   Elasticsearch:
